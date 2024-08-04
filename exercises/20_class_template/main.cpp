@@ -1,5 +1,5 @@
 ﻿#include "../exercise.h"
-
+#include <cstring>
 // READ: 类模板 <https://zh.cppreference.com/w/cpp/language/class_template>
 
 template<class T>
@@ -8,10 +8,11 @@ struct Tensor4D {
     T *data;
 
     Tensor4D(unsigned int const shape_[4], T const *data_) {
-        unsigned int size = 1;
+        unsigned int size = shape_[0]*shape_[1]*shape_[2]*shape_[3];
         // TODO: 填入正确的 shape 并计算 size
+        memcpy(shape,shape_,4*sizeof(unsigned int));
         data = new T[size];
-        std::memcpy(data, data_, size * sizeof(T));
+        memcpy(data, data_, size * sizeof(T));
     }
     ~Tensor4D() {
         delete[] data;
@@ -27,7 +28,43 @@ struct Tensor4D {
     // 例如，`this` 形状为 `[1, 2, 3, 4]`，`others` 形状为 `[1, 2, 1, 4]`，
     // 则 `this` 与 `others` 相加时，3 个形状为 `[1, 2, 1, 4]` 的子张量各自与 `others` 对应项相加。
     Tensor4D &operator+=(Tensor4D const &others) {
-        // TODO: 实现单向广播的加法
+        // Check for shape compatibility
+        for (int i = 0; i < 4; ++i) {
+            if (shape[i] != others.shape[i] && others.shape[i] != 1) {
+                throw std::invalid_argument("Shapes are not compatible for broadcasting.");
+            }
+        }
+
+        // Calculate strides for both tensors
+        unsigned int this_strides[4] = { shape[1] * shape[2] * shape[3], shape[2] * shape[3], shape[3], 1 };
+        unsigned int other_strides[4] = { others.shape[1] * others.shape[2] * others.shape[3], others.shape[2] * others.shape[3], others.shape[3], 1 };
+
+        unsigned int size = shape[0] * shape[1] * shape[2] * shape[3];
+        for (unsigned int idx = 0; idx < size; ++idx) {
+            unsigned int this_idx[4] = {
+                (idx / this_strides[0]) % shape[0],
+                (idx / this_strides[1]) % shape[1],
+                (idx / this_strides[2]) % shape[2],
+                (idx / this_strides[3]) % shape[3]
+            };
+            // Calculate the corresponding index for `others`
+            unsigned int other_idx[4] = {
+                others.shape[0] != shape[0]? 0 : this_idx[0],
+                others.shape[1] != shape[1]? 0 : this_idx[1],
+                others.shape[2] != shape[2]? 0 : this_idx[2],
+                others.shape[3] != shape[3]? 0 : this_idx[3]
+            };
+
+            // Compute the flat index for `others`
+            unsigned int other_flat_idx = other_idx[0] * other_strides[0] +
+                                          other_idx[1] * other_strides[1] +
+                                          other_idx[2] * other_strides[2] +
+                                          other_idx[3] * other_strides[3];
+
+            // Perform the addition
+            data[idx] += others.data[other_flat_idx];
+        }
+
         return *this;
     }
 };

@@ -23,6 +23,8 @@ enum class Color : int {
     Blue,
 };
 
+// You cannot use a union for type punning because you are not allowed to first write to one member of the union, and then read from a different one
+
 ColorEnum convert_by_pun(Color c) {
     // READ: <https://zh.cppreference.com/w/cpp/language/union>
     // `union` 表示在同一内存位置存储的不同类型的值。
@@ -36,6 +38,8 @@ ColorEnum convert_by_pun(Color c) {
     };
 
     TypePun pun;
+    pun.c = c;
+    pun.e = (ColorEnum)pun.c;
     // TODO: 补全类型双关转换
 
     return pun.e;
